@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Long Task</title>
+</head>
+<body>
+<button id="button">count</button>
+<button id="stop">Stop</button>
+<div>Click count: <span id="clickCount">0</span></div>
+<div>Loop count: <span id="loopCount">0</span></div>
+
+
+<script type="text/javascript">
+
+  // https://macarthur.me/posts/long-tasks/
+  // https://kettanaito.com/blog/dont-sleep-on-abort-controller
+
+  function waitSync (milliseconds) {
+    const start = Date.now()
+    while (Date.now() - start < milliseconds) {}
+  }
+
+  const button = document.getElementById('button')
+  const clickCount = document.getElementById('clickCount')
+  const loopCount = document.getElementById('loopCount')
+  const stopButton = document.getElementById('stop')
+
+  const controller = new AbortController()
+
+  button.addEventListener('click', () => {
+    clickCount.innerText = Number(clickCount.innerText) + 1
+  })
+
+  stopButton.addEventListener('click', () => {
+    controller.abort('user cancellation')
+  })
+
+  const items = Array.from({ length: 1000 }, (_, i) => i) // Example large array
+
+  // 01
+  function processItems01 (items) {
+    for (const i of items) {
+      loopCount.innerText = i
+      waitSync(5)
+    }
+  }
+
+  // 02: with setTimeout recurring
+
+  function processItems02 (items, index = 0, options = {}) {
+
+    loopCount.innerText = Number(items[index])
+
+    if (index + 1 < items.length) {
+      const timerOrID = setTimeout(() => {
+        processItems02(items, index + 1, options)
+      }, 0)
+
+      options.signal?.addEventListener('abort', () => {
+        clearTimeout(timerOrID)
+        console.log(controller.signal.reason) // "user cancellation"
+      })
+    }
+  }
+
+  // 03: with async Promise
+  async function processItems03 (items, options = {}) {
+
+    for (const i of items) {
+      loopCount.innerText = i
+      await new Promise((resolve) => {
+
+        const timerOrID = setTimeout(resolve, 0)
+
+        options.signal?.addEventListener('abort', () => {
+          clearTimeout(timerOrID)
+          console.log(controller.signal.reason) // "user cancellation"
+        })
+      })
+    }
+  }
+
+  // 04: with requestAnimationFrame same as setTimeout
+  function processItems04 (items, index = 0, options = {}) {
+
+    loopCount.innerText = Number(items[index])
+
+    if (index + 1 < items.length) {
+      const timerOrID = requestAnimationFrame(() => { processItems04(items, index + 1, options) })
+      options.signal?.addEventListener('abort', () => {
+        cancelAnimationFrame(timerOrID)
+        console.log(controller.signal.reason)
+      })
+    }
+  }
+
+  // 05: with Web Workers
+  const workerScript = `
+  function waitSync(milliseconds) {
+    const start = Date.now();
+    while (Date.now() - start < milliseconds) {}
+  }
+
+  self.onmessage = function(e) {
+	 for (const i of e.data) {
+	   waitSync(5);
+	   self.postMessage(i);
+	}
+  }
+`;
+
+  const blob = new Blob([workerScript], { type: "text/javascript" });
+  const worker = new Worker(window.URL.createObjectURL(blob));
+
+  async function processItems05 (items, options = {}) {
+
+    worker.postMessage(items);
+
+    await new Promise((resolve) => {
+      worker.onmessage = function (e) {
+        loopCount.innerText = e.data;
+        resolve();
+      };
+    });
+
+    options.signal?.addEventListener('abort', () => {
+      worker.terminate();
+      console.log(controller.signal.reason)
+    })
+  }
+
+
+  // Will block: Main thread
+  // processItems01(items)
+
+  // Will Not block: Main thread
+  /*  processItems02(items, 0, {
+	  signal: controller.signal,
+	})*/
+
+  // Will Not block: Main thread
+  /*    processItems03(items, {
+		signal: controller.signal,
+	  })*/
+
+  // Will Not block: Main thread
+  /*  processItems04(items, 0, {
+	  signal: controller.signal,
+	})*/
+
+  // Will Not block: Main thread
+/*    processItems05(items, {
+      signal: controller.signal,
+    })*/
+</script>
+</body>
+</html>
