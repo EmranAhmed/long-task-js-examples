@@ -11,6 +11,7 @@
 <div>Loop count: <span id="loopCount">0</span></div>
 
 
+<div id="text"></div>
 <script type="text/javascript">
 
   // https://macarthur.me/posts/long-tasks/
@@ -108,28 +109,27 @@
 	   self.postMessage(i);
 	}
   }
-`;
+`
 
-  const blob = new Blob([workerScript], { type: "text/javascript" });
-  const worker = new Worker(window.URL.createObjectURL(blob));
+  const blob = new Blob([workerScript], { type: 'text/javascript' })
+  const worker = new Worker(window.URL.createObjectURL(blob))
 
   async function processItems05 (items, options = {}) {
 
-    worker.postMessage(items);
+    worker.postMessage(items)
 
     await new Promise((resolve) => {
       worker.onmessage = function (e) {
-        loopCount.innerText = e.data;
-        resolve();
-      };
-    });
+        loopCount.innerText = e.data
+        resolve()
+      }
+    })
 
     options.signal?.addEventListener('abort', () => {
-      worker.terminate();
+      worker.terminate()
       console.log(controller.signal.reason)
     })
   }
-
 
   // Will block: Main thread
   // processItems01(items)
@@ -150,9 +150,52 @@
 	})*/
 
   // Will Not block: Main thread
-/*    processItems05(items, {
-      signal: controller.signal,
-    })*/
+  /*    processItems05(items, {
+		signal: controller.signal,
+	  })*/
+
+  function chunkText (text, chunkSize = 3) {
+   //  const chunks = []
+
+/*    for (let i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.slice(i, i + chunkSize))
+    }*/
+
+    const chunks = text.replace( /\n/g, " " ).split( " " )
+
+    return chunks
+  }
+
+  async function streamText () {
+    const text = `In the beginning God created the heaven and the earth. And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters. And God said, Let there be light: and there was light. And God saw the light, that it was good: and God divided the light from the darkness. And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.
+
+And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so. And God called the firmament Heaven. And the evening and the morning were the second day.
+
+And God said, Let the waters under the heaven be gathered together unto one place, and let the dry land appear: and it was so. And God called the dry land Earth; and the gathering together of the waters called he Seas: and God saw that it was good. And God said, Let the earth bring forth grass, the herb yielding seed, and the fruit tree yielding fruit after his kind, whose seed is in itself, upon the earth: and it was so. And the earth brought forth grass, and herb yielding seed after his kind, and the tree yielding fruit, whose seed was in itself, after his kind: and God saw that it was good. And the evening and the morning were the third day.`
+
+    const chunks = chunkText(text)
+
+    async function * generateStream () {
+      for (const chunk of chunks) {
+        await new Promise((resolve) => setTimeout(resolve, Math.random() * 50))
+
+        yield chunk
+      }
+    }
+
+    return {
+      textStream: generateStream(),
+    }
+  }
+
+  async function startType () {
+    const { textStream } = await streamText()
+
+    for await (const textPart of textStream) {
+      document.getElementById('text').innerHTML += textPart + "&nbsp;"
+    }
+  }
+
 </script>
 </body>
 </html>
