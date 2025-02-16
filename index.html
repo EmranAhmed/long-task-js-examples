@@ -18,11 +18,6 @@
   // https://macarthur.me/posts/long-tasks/
   // https://kettanaito.com/blog/dont-sleep-on-abort-controller
 
-  function waitSync (milliseconds) {
-    const start = Date.now()
-    while (Date.now() - start < milliseconds) {}
-  }
-
   const button = document.getElementById('button')
   const clickCount = document.getElementById('clickCount')
   const loopCount = document.getElementById('loopCount')
@@ -183,8 +178,13 @@
     return chunks
   }
 
-  function delay (ms) {
-    return new Promise(resolve => setTimeout(resolve, ms))
+  function waitAsync (milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+  }
+
+  function waitSync (milliseconds) {
+    const start = Date.now()
+    while (Date.now() - start < milliseconds) {}
   }
 
   async function * generateStream (chunks, options = {}) {
@@ -209,7 +209,7 @@
       }
 
       // await new Promise((resolve) => setTimeout(resolve, Math.random() * 50))
-      await delay(Math.random() * 50)
+      await waitAsync(Math.random() * 50)
 
       yield chunk
     }
