@@ -88,8 +88,9 @@
         break
       }
 
+      await waitAsync(0)
+
       loopCount.innerText = i
-      await new Promise((resolve) => setTimeout(resolve, 0))
     }
   }
 
@@ -178,10 +179,12 @@
     return chunks
   }
 
+  // Donot Block UI
   function waitAsync (milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds))
   }
 
+  // Will Block UI
   function waitSync (milliseconds) {
     const start = Date.now()
     while (Date.now() - start < milliseconds) {}
