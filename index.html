@@ -5,13 +5,14 @@
 	<title>Long Task</title>
 </head>
 <body>
+<button id="startType">Typing</button>
 <button id="button">count</button>
 <button id="stop">Stop</button>
 <div>Click count: <span id="clickCount">0</span></div>
 <div>Loop count: <span id="loopCount">0</span></div>
 
 
-<div id="text"></div>
+<div id="text" style="width: 500px; margin-block: 10px; margin-inline: auto; padding: 10px;"></div>
 <script type="text/javascript">
 
   // https://macarthur.me/posts/long-tasks/
@@ -26,6 +27,7 @@
   const clickCount = document.getElementById('clickCount')
   const loopCount = document.getElementById('loopCount')
   const stopButton = document.getElementById('stop')
+  const startType = document.getElementById('startType')
 
   const controller = new AbortController()
 
@@ -53,32 +55,46 @@
 
     loopCount.innerText = Number(items[index])
 
+    if (options?.signal.aborted) {
+      console.log(options?.signal.reason)
+      return
+    }
+
     if (index + 1 < items.length) {
       const timerOrID = setTimeout(() => {
         processItems02(items, index + 1, options)
       }, 0)
 
-      options.signal?.addEventListener('abort', () => {
-        clearTimeout(timerOrID)
-        console.log(controller.signal.reason) // "user cancellation"
-      })
+      /*      options.signal?.addEventListener('abort', () => {
+			  clearTimeout(timerOrID)
+			  console.log(controller.signal.reason) // "user cancellation"
+			})*/
     }
   }
 
   // 03: with async Promise
   async function processItems03 (items, options = {}) {
 
+    /*    let abort = false
+
+		options.signal?.addEventListener('abort', () => {
+		  abort = true
+		  console.log(controller.signal.reason) // "user cancellation"
+		})*/
+
     for (const i of items) {
+
+      /*if (abort) {
+        break
+      }*/
+
+      if (options?.signal.aborted) {
+        console.log(options?.signal.reason)
+        break
+      }
+
       loopCount.innerText = i
-      await new Promise((resolve) => {
-
-        const timerOrID = setTimeout(resolve, 0)
-
-        options.signal?.addEventListener('abort', () => {
-          clearTimeout(timerOrID)
-          console.log(controller.signal.reason) // "user cancellation"
-        })
-      })
+      await new Promise((resolve) => setTimeout(resolve, 0))
     }
   }
 
@@ -140,9 +156,9 @@
 	})*/
 
   // Will Not block: Main thread
-  /*    processItems03(items, {
-		signal: controller.signal,
-	  })*/
+  /*        processItems03(items, {
+			signal: controller.signal,
+		  })*/
 
   // Will Not block: Main thread
   /*  processItems04(items, 0, {
@@ -150,23 +166,56 @@
 	})*/
 
   // Will Not block: Main thread
-  /*    processItems05(items, {
-		signal: controller.signal,
-	  })*/
+/*  processItems05(items, {
+    signal: controller.signal,
+  })*/
 
   function chunkText (text, chunkSize = 3) {
-   //  const chunks = []
+    /*   const chunks = []
 
-/*    for (let i = 0; i < text.length; i += chunkSize) {
-      chunks.push(text.slice(i, i + chunkSize))
-    }*/
+	   for (let i = 0; i < text.length; i += chunkSize) {
+		 chunks.push(text.slice(i, i + chunkSize))
+	   }*/
 
-    const chunks = text.replace( /\n/g, " " ).split( " " )
+    // const chunks = text.replace(/\n/g, ' ').split(' ')
+    const chunks = text.split(' ')
 
     return chunks
   }
 
-  async function streamText () {
+  function delay (ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  async function * generateStream (chunks, options = {}) {
+
+    let abort = false
+
+    /*    options.signal?.addEventListener('abort', () => {
+		  abort = true
+		  console.log(controller.signal.reason)
+		})*/
+
+    for (const chunk of chunks) {
+      // await new Promise((resolve) => setTimeout(resolve, Math.random() * 50))
+
+      if (abort) {
+        // break
+      }
+
+      if (options?.signal.aborted) {
+        console.log(options?.signal.reason)
+        break
+      }
+
+      // await new Promise((resolve) => setTimeout(resolve, Math.random() * 50))
+      await delay(Math.random() * 50)
+
+      yield chunk
+    }
+  }
+
+  function streamText (options = {}) {
     const text = `In the beginning God created the heaven and the earth. And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters. And God said, Let there be light: and there was light. And God saw the light, that it was good: and God divided the light from the darkness. And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.
 
 And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so. And God called the firmament Heaven. And the evening and the morning were the second day.
@@ -175,26 +224,24 @@ And God said, Let the waters under the heaven be gathered together unto one plac
 
     const chunks = chunkText(text)
 
-    async function * generateStream () {
-      for (const chunk of chunks) {
-        await new Promise((resolve) => setTimeout(resolve, Math.random() * 50))
-
-        yield chunk
-      }
-    }
-
     return {
-      textStream: generateStream(),
+      textStream: generateStream(chunks, options),
     }
   }
 
-  async function startType () {
-    const { textStream } = await streamText()
+  async function startTyping (options = {}) {
+    const { textStream } = streamText(options)
 
     for await (const textPart of textStream) {
-      document.getElementById('text').innerHTML += textPart + "&nbsp;"
+      document.getElementById('text').innerHTML += `${textPart} `
     }
   }
+
+  startType.addEventListener('click', () => {
+    startTyping({
+      signal: controller.signal,
+    })
+  })
 
 </script>
 </body>
